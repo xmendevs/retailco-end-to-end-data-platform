@@ -46,33 +46,44 @@ This project creates a scalable analytics layer that enables:
 # Architecture
 
 ERP Source Database
+
 ↓
 
 Airbyte-style Incremental Extraction
+
 ↓
 
 Lake Database (Raw Layer)
+
 ↓
 
 dlt Load Pipeline
+
 ↓
 
 Warehouse Database
+
 ↓
 
 dbt Snapshots (SCD Type 2)
+
 ↓
 
 dbt Staging Models
+
 ↓
 
 dbt Dimensions + Fact Tables
+
 ↓
 
 Data Quality Tests
+
 ↓
 
 Power BI Dashboard
+
+---
 
 ## Architecture Diagram
 
