@@ -266,6 +266,10 @@ DAG:
 
 retailco_pipeline
 
+## Airflow Orchestration
+
+![Airflow DAG](design/screenshots/airflow_dag.png)
+
 ---
 
 # Power BI Dashboard
