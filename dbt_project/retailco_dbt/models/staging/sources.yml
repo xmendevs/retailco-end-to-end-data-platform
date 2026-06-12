@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+
+  - name: raw
+    schema: raw_staging
+
+    tables:
+      - name: customers
+      - name: orders
+      - name: order_items
+      - name: products
+      - name: payments
+      - name: stores
+      - name: employees
+      - name: payment_methods
+      - name: inventory_movements

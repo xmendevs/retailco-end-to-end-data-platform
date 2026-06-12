@@ -1,0 +1,80 @@
+version: 2
+
+models:
+  - name: dim_customers
+    columns:
+      - name: customer_key
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_products
+    columns:
+      - name: product_key
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_stores
+    columns:
+      - name: store_key
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_employees
+    columns:
+      - name: employee_key
+        data_tests:
+          - unique
+          - not_null
+
+  - name: fct_sales
+    columns:
+      - name: order_item_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: customer_key
+        data_tests:
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_key
+
+      - name: product_key
+        data_tests:
+          - relationships:
+              to: ref('dim_products')
+              field: product_key
+
+      - name: store_key
+        data_tests:
+          - relationships:
+              to: ref('dim_stores')
+              field: store_key
+
+  - name: fct_payments
+    columns:
+      - name: payment_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: customer_key
+        data_tests:
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_key
+
+      - name: store_key
+        data_tests:
+          - relationships:
+              to: ref('dim_stores')
+              field: store_key
+
+      - name: payment_method_key
+        data_tests:
+          - relationships:
+              to: ref('dim_payment_method')
+              field: payment_method_key

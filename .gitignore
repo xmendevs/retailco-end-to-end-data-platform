@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments & Dependencies
+venv/
+*/venv/
+.env
+
+# Airflow logs & Metadata
+logs/
+
+# dbt artifacts & Documentation
+target/
+dbt_packages/
+dbt_docs/
+
+# DLT state
+.dlt/
+
+# VS Code
+.vscode/
+
+# Windows system files
+Thumbs.db
+Desktop.ini
+
+# pgAdmin
+*.sqlite
+
+# Docker
+*.log

@@ -1,0 +1,171 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────
+# SHARED AIRFLOW CONFIGURATION
+# The &airflow-common block defines settings that ALL
+# Airflow services (webserver + scheduler) share.
+# The <<: *airflow-common line copies these settings in.
+# ─────────────────────────────────────────────────────
+x-airflow-common: &airflow-common
+  build:  
+    context: ./docker
+    dockerfile: Dockerfile
+  environment:
+    # Tell Airflow to use PostgreSQL as its metadata database
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow123@airflow_metadata_db/airflow
+    # Use LocalExecutor (runs tasks in the same container — simpler than Celery)
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    # Security keys
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+    # Your ERP API key and other env vars (passed from your .env file)
+    ERP_API_KEY: ${ERP_API_KEY}
+    ERP_BASE_URL: ${ERP_BASE_URL}
+    LAKE_DB_HOST: lake_db
+    LAKE_DB_PORT: 5432
+    LAKE_DB_NAME: ${LAKE_DB_NAME}
+    LAKE_DB_USER: ${LAKE_DB_USER}
+    LAKE_DB_PASSWORD: ${LAKE_DB_PASSWORD}
+    WAREHOUSE_DB_HOST: warehouse_db
+    WAREHOUSE_DB_PORT: 5432
+    WAREHOUSE_DB_NAME: ${WAREHOUSE_DB_NAME}
+    WAREHOUSE_DB_USER: ${WAREHOUSE_DB_USER}
+    WAREHOUSE_DB_PASSWORD: ${WAREHOUSE_DB_PASSWORD}
+    # Don't pause DAGs when first created
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    # Load example DAGs (set to false — we only want our own)
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+  volumes:
+    # Mount your code folders INTO the container
+    # Left side = your Windows folder, Right side = path inside container
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./extractor:/opt/airflow/extractor
+    - ./dlt_pipeline:/opt/airflow/dlt_pipeline
+    - ./dbt_project/retailco_dbt:/opt/airflow/dbt_project
+  depends_on:
+    airflow_metadata_db:
+      condition: service_healthy
+
+# ─────────────────────────────────────────────────────
+# SERVICES (the 5 containers)
+# ─────────────────────────────────────────────────────
+services:
+
+  # ── 1. LAKE DATABASE ────────────────────────────────
+  lake_db:
+    image: postgres:15
+    container_name: retailco_lake_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: lake
+    ports:
+      - "5433:5432"  # Accessible on your Windows machine at localhost:5433
+    volumes:
+      - lake_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      retries: 5
+
+  # ── 2. WAREHOUSE DATABASE ────────────────────────────
+  warehouse_db:
+    image: postgres:15
+    container_name: retailco_warehouse_db
+    shm_size: '2gb'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: warehouse
+    ports:
+      - "5434:5432"  # Accessible on your Windows machine at localhost:5434
+    volumes:
+      - warehouse_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      retries: 5
+      
+
+  # ── 3. AIRFLOW METADATA DATABASE ────────────────────
+  airflow_metadata_db:
+    image: postgres:15
+    container_name: retailco_airflow_metadata_db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow123
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_metadata_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+
+  # ── 4. AIRFLOW INITIALISER ───────────────────────────
+  # This runs ONCE to set up Airflow's database tables and create admin user
+  airflow_init:
+    <<: *airflow-common
+    container_name: retailco_airflow_init
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create
+          --username admin
+          --password admin123
+          --firstname Admin
+          --lastname User
+          --role Admin
+          --email admin@retailco.ng
+      "
+    restart: "no"  # Only run once, don't restart
+
+  # ── 5. AIRFLOW WEBSERVER ─────────────────────────────
+  airflow_webserver:
+    <<: *airflow-common
+    container_name: retailco_airflow_webserver
+    command: webserver
+    ports:
+      - "8080:8080"  # Open http://localhost:8080 in your browser
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # ── 6. AIRFLOW SCHEDULER ─────────────────────────────
+  airflow_scheduler:
+    <<: *airflow-common
+    container_name: retailco_airflow_scheduler
+    command: scheduler
+    restart: unless-stopped
+
+  # ── 7. PGADMIN ──────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: retailco_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@retailco.ng
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_PROXY_X_FOR_COUNT: 1
+      PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: 1
+    ports:
+      - "5050:80"
+    depends_on:
+      - lake_db
+      - warehouse_db
+      - airflow_metadata_db
+    restart: unless-stopped
+
+# ─────────────────────────────────────────────────────
+# VOLUMES (persistent storage — data survives container restarts)
+# ─────────────────────────────────────────────────────
+volumes:
+  lake_db_data:
+  warehouse_db_data:
+  airflow_metadata_data:
+  
+  
