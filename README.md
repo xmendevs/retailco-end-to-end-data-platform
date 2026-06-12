@@ -74,6 +74,10 @@ Data Quality Tests
 
 Power BI Dashboard
 
+## Architecture Diagram
+
+![Architecture_diagram](design/architecture_diagram.png)
+
 ---
 
 # Technology Stack
