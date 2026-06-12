@@ -268,7 +268,7 @@ retailco_pipeline
 
 ## Airflow Orchestration
 
-![Airflow DAG](design/screenshots/airflow_dag.png)
+![Airflow DAG](airflow_dag.png)
 
 ---
 
